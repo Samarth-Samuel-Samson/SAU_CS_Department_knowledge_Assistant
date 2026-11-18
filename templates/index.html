@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS Department AI Assistant (Prolog + Deep RAG)</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #eff6ff 0%, #fefce8 50%, #f0fdf4 100%);
+      --card-bg: #ffffff;
+      --border-light: #e2e8f0;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+
+      /* Vibrant Palette: Blue, Red, Green, Yellow */
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --blue-soft: #dbeafe;
+
+      --red: #dc2626;
+      --red-dark: #b91c1c;
+      --red-soft: #fee2e2;
+
+      --green: #16a34a;
+      --green-dark: #15803d;
+      --green-soft: #dcfce7;
+
+      --yellow: #f59e0b;
+      --yellow-dark: #d97706;
+      --yellow-soft: #fef3c7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Vibrant Top Header with 4-Color Accent Strip */
+    header {
+      background: #ffffff;
+      border-bottom: 3px solid transparent;
+      border-image: linear-gradient(90deg, var(--blue), var(--red), var(--yellow), var(--green)) 1;
+      padding: 14px 26px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.08);
+      z-index: 10;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .color-dots {
+      display: flex;
+      gap: 5px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot.b { background: var(--blue); }
+    .dot.r { background: var(--red); }
+    .dot.y { background: var(--yellow); }
+    .dot.g { background: var(--green); }
+
+    header h1 {
+      font-size: 1.22rem;
+      background: linear-gradient(90deg, var(--blue), var(--red));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    /* Highlighted & Shadowed Recompile Button (Yellow-to-Orange/Red Gradient) */
+    .rebuild-btn {
+      background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%);
+      border: 2px solid #eab308;
+      color: #451a03;
+      padding: 9px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.84rem;
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      transition: all 0.2s ease;
+    }
+
+    .rebuild-btn:hover {
+      transform: translateY(-2px);
+      background: linear-gradient(135deg, #fde047 0%, #f59e0b 100%);
+      box-shadow: 0 7px 18px rgba(245, 158, 11, 0.52);
+    }
+
+    .rebuild-btn:active {
+      transform: translateY(0);
+    }
+
+    /* Multi-Colored Quick Chips Bar */
+    .chips-bar {
+      display: flex;
+      gap: 10px;
+      padding: 12px 26px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-light);
+      overflow-x: auto;
+    }
+
+    .chip {
+      padding: 7px 15px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .chip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
+    }
+
+    .chip.blue {
+      background: var(--blue-soft);
+      color: var(--blue-dark);
+      border: 1.5px solid #93c5fd;
+    }
+    .chip.blue:hover { background: var(--blue); color: #ffffff; }
+
+    .chip.green {
+      background: var(--green-soft);
+      color: var(--green-dark);
+      border: 1.5px solid #86efac;
+    }
+    .chip.green:hover { background: var(--green); color: #ffffff; }
+
+    .chip.yellow {
+      background: var(--yellow-soft);
+      color: #92400e;
+      border: 1.5px solid #fcd34d;
+    }
+    .chip.yellow:hover { background: var(--yellow); color: #ffffff; }
+
+    .chip.red {
+      background: var(--red-soft);
+      color: var(--red-dark);
+      border: 1.5px solid #fca5a5;
+    }
+    .chip.red:hover { background: var(--red); color: #ffffff; }
+
+    /* SAU logo watermark: centred, enlarged, translucent, behind the chat */
+    .bg-logo {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -46%);
+      height: min(72vh, 120vw);
+      width: auto;
+      opacity: 0.11;
+      pointer-events: none;
+      user-select: none;
+      z-index: 0;
+    }
+    header, .chips-bar, footer, #chat-box { position: relative; z-index: 1; }
+
+    /* Chat Area */
+    #chat-box {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .msg {
+      max-width: 82%;
+      padding: 16px 20px;
+      border-radius: 16px;
+      line-height: 1.65;
+      font-size: 0.95rem;
+    }
+
+    /* User Bubble: Vivid Blue Gradient */
+    .user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, var(--blue) 0%, #3b82f6 100%);
+      color: #ffffff;
+      font-weight: 500;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+    }
+
+    /* Bot Bubble: Crisp White Card with Green Left Accent */
+    .bot {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(1.5px);
+      color: var(--text-main);
+      border: 1px solid #cbd5e1;
+      border-left: 5px solid var(--green);
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
+    }
+
+    /* Out-of-Scope / Rejected Bubble: Highlighted Red Card */
+    .bot.rejected {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      border-left: 5px solid var(--red);
+      color: #7f1d1d;
+      box-shadow: 0 6px 18px rgba(220, 38, 38, 0.12);
+    }
+
+    /* Clean Answer Typography */
+    .answer-content h3 {
+      color: var(--blue-dark);
+      font-size: 1.05rem;
+      margin: 12px 0 8px 0;
+      padding-bottom: 5px;
+      border-bottom: 2px solid var(--yellow-soft);
+      font-weight: 800;
+    }
+
+    .answer-content h3:first-child {
+      margin-top: 0;
+    }
+
+    .answer-content ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 6px 0;
+    }
+
+    .answer-content li {
+      position: relative;
+      padding-left: 18px;
+      margin-bottom: 6px;
+      color: #334155;
+    }
+
+    .answer-content li::before {
+      content: "▸";
+      position: absolute;
+      left: 2px;
+      color: var(--red);
+      font-weight: bold;
+    }
+
+    .answer-content p {
+      margin-bottom: 8px;
+    }
+
+    .answer-content strong {
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    /* Citations & Badges */
+    .citations {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px dashed #cbd5e1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .badge-conf {
+      font-size: 0.74rem;
+      background: var(--green-soft);
+      border: 1px solid #86efac;
+      color: var(--green-dark);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+
+    .badge-src {
+      font-size: 0.74rem;
+      background: var(--blue-soft);
+      border: 1px solid #93c5fd;
+      color: var(--blue-dark);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .trace-toggle {
+      font-size: 0.75rem;
+      color: #92400e;
+      background: var(--yellow-soft);
+      border: 1px solid #fcd34d;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      margin-left: auto;
+      box-shadow: 0 2px 5px rgba(245, 158, 11, 0.2);
+      transition: 0.15s;
+    }
+
+    .trace-toggle:hover {
+      background: var(--yellow);
+      color: #ffffff;
+    }
+
+    /* Light-Theme Prolog Trace Inspector Box */
+    .trace-box {
+      display: none;
+      margin-top: 12px;
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.78rem;
+      color: #334155;
+    }
+
+    .prolog-goal {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #eff6ff;
+      color: var(--blue-dark);
+      border: 1px solid #bfdbfe;
+      padding: 7px 10px;
+      border-radius: 6px;
+      margin: 5px 0 10px 0;
+      display: block;
+      font-weight: 600;
+      overflow-x: auto;
+    }
+
+    .trace-chunk {
+      margin-top: 6px;
+      padding: 8px 10px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid var(--yellow);
+      border-radius: 6px;
+    }
+
+    /* Footer Input & Highlighted Ask Button */
+    footer {
+      padding: 16px 26px;
+      background: #ffffff;
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      gap: 12px;
+      box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.04);
+    }
+
+    #query-input {
+      flex: 1;
+      padding: 13px 18px;
+      border-radius: 12px;
+      border: 2px solid #cbd5e1;
+      background: #f8fafc;
+      color: var(--text-main);
+      font-size: 0.96rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    #query-input:focus {
+      border-color: var(--blue);
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+    }
+
+    /* Highlighted, Gradient & Shadowed Ask Button */
+    #ask-btn {
+      background: linear-gradient(135deg, var(--green) 0%, #10b981 100%);
+      color: #ffffff;
+      border: none;
+      padding: 0 28px;
+      border-radius: 12px;
+      font-size: 0.96rem;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      box-shadow: 0 5px 15px rgba(22, 163, 74, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    #ask-btn:hover {
+      transform: translateY(-2px);
+      background: linear-gradient(135deg, #22c55e 0%, var(--green) 100%);
+      box-shadow: 0 8px 20px rgba(22, 163, 74, 0.55);
+    }
+
+    #ask-btn:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <img class="bg-logo" src="{{ url_for('static', filename='sau_logo_transparent.png') }}" alt="" aria-hidden="true">
+
+  <header>
+    <div>
+      <div class="brand-title">
+        <div class="color-dots">
+          <span class="dot b"></span>
+          <span class="dot r"></span>
+          <span class="dot y"></span>
+          <span class="dot g"></span>
+        </div>
+        <h1>CS Department Knowledge Assistant</h1>
+      </div>
+      <p>Neuro-Symbolic Prolog Unification + Hierarchical PDF Retrieval Engine</p>
+    </div>
+    <button class="rebuild-btn" onclick="rebuildStore()">⚡ Recompile Prolog KB</button>
+  </header>
+
+  <div class="chips-bar">
+    <span class="chip blue" onclick="quickAsk('Tell me about eligibility of admission in MCA')">MCA Eligibility</span>
+    <span class="chip green" onclick="quickAsk('Tell me the course structure of MCA')">MCA Course Structure</span>
+    <span class="chip yellow" onclick="quickAsk('Tell me MCA fees')">MCA Fees</span>
+    <span class="chip red" onclick="quickAsk('Tell me about Pranab Muhuri')">Dr.Amit Shukla Sir</span>
+    <span class="chip blue" onclick="quickAsk('Explain the B.Tech Mathematics and Computing program')">B.Tech Math & Computing</span>
+    <span class="chip green" onclick="quickAsk('How can I contact the CS Department administration?')">Contact Administration</span>
+  </div>
+
+  <div id="chat-box">
+    <div class="msg bot">
+      <div class="answer-content">
+        <p>Welcome! Ask any question about the <strong>Computer Science Department</strong> programs, eligibility criteria, course structures, fee structures, faculty profiles, or administration contacts.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <input id="query-input" type="text" placeholder="Ask about MCA eligibility, course structure, fees, faculty..." onkeydown="if(event.key==='Enter') sendQuery()" />
+    <button id="ask-btn" onclick="sendQuery()">Ask AI ➤</button>
+  </footer>
+
+  <script>
+    const chatBox = document.getElementById("chat-box");
+    const queryInput = document.getElementById("query-input");
+
+    function formatAnswerHTML(rawText) {
+      if (!rawText) return "";
+      const lines = rawText.split("\n");
+      let html = "";
+      let inList = false;
+
+      for (let rawLine of lines) {
+        let line = rawLine.trim();
+        if (!line) {
+          if (inList) {
+            html += "</ul>";
+            inList = false;
+          }
+          continue;
+        }
+
+        let formatted = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+        if (rawLine.trim().startsWith("**") && rawLine.trim().endsWith("**") && !rawLine.trim().slice(2, -2).includes("**")) {
+          if (inList) {
+            html += "</ul>";
+            inList = false;
+          }
+          const headingText = rawLine.trim().slice(2, -2);
+          html += `<h3>${headingText}</h3>`;
+        }
+        else if (line.startsWith("•") || line.startsWith("- ")) {
+          if (!inList) {
+            html += "<ul>";
+            inList = true;
+          }
+          const itemText = formatted.replace(/^[•\-]\s*/, "");
+          html += `<li>${itemText}</li>`;
+        }
+        else {
+          if (inList) {
+            html += "</ul>";
+            inList = false;
+          }
+          html += `<p>${formatted}</p>`;
+        }
+      }
+
+      if (inList) {
+        html += "</ul>";
+      }
+      return html;
+    }
+
+    function addMessage(text, isUser, data = null) {
+      const div = document.createElement("div");
+      div.className = `msg ${isUser ? "user" : "bot"}`;
+      if (data && !data.found) div.classList.add("rejected");
+
+      let innerHTML = isUser
+        ? `<div>${text}</div>`
+        : `<div class="answer-content">${formatAnswerHTML(text)}</div>`;
+
+      if (data) {
+        const traceId = "trace-" + Date.now() + Math.floor(Math.random() * 1000);
+        let badges = `<span class="badge-conf">Confidence: ${data.confidence}%</span>`;
+        (data.sources || []).forEach(s => {
+          badges += `<span class="badge-src">📄 ${s.file} (p.${s.page})</span>`;
+        });
+
+        innerHTML += `
+          <div class="citations">
+            ${badges}
+            <button class="trace-toggle" onclick="toggleTrace('${traceId}')">🔍 Inspect Prolog Trace</button>
+          </div>
+        `;
+
+        if (data.rag_trace) {
+          let chunksHtml = (data.rag_trace.retrieved_chunks || []).map(c => `
+            <div class="trace-chunk">
+              <b>[${c.category}] ${c.file} — ${c.section} (Page ${c.page}, Score: ${c.score})</b><br>
+              <span>${c.snippet}</span>
+            </div>
+          `).join("");
+
+          innerHTML += `
+            <div id="${traceId}" class="trace-box">
+              <div><b>Inference Status:</b> ${data.rag_trace.status || "Completed"}</div>
+              <div style="margin-top:6px;"><b>Prolog Logical Query:</b></div>
+              <code class="prolog-goal">${data.rag_trace.expanded_query || "N/A"}</code>
+              <div><b>Unified Knowledge Base Facts:</b></div>
+              ${chunksHtml || "<div>No facts unified with the query goal.</div>"}
+            </div>
+          `;
+        }
+      }
+
+      div.innerHTML = innerHTML;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function toggleTrace(id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = el.style.display === "block" ? "none" : "block";
+    }
+
+    async function sendQuery() {
+      const q = queryInput.value.trim();
+      if (!q) return;
+      addMessage(q, true);
+      queryInput.value = "";
+
+      try {
+        const res = await fetch("/api/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: q })
+        });
+        const data = await res.json();
+        addMessage(data.answer, false, data);
+      } catch (err) {
+        addMessage("Error connecting to the local server.", false);
+      }
+    }
+
+    function quickAsk(q) {
+      queryInput.value = q;
+      sendQuery();
+    }
+
+    async function rebuildStore() {
+      const btn = document.querySelector(".rebuild-btn");
+      btn.textContent = "⏳ Compiling...";
+      try {
+        const res = await fetch("/api/reindex", { method: "POST" });
+        const data = await res.json();
+        alert(data.message);
+      } catch (e) {
+        alert("Failed to recompile knowledge base.");
+      } finally {
+        btn.textContent = "⚡ Recompile Prolog KB";
+      }
+    }
+  </script>
+</body>
+</html>
